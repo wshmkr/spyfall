@@ -1,30 +1,23 @@
 import os
-import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from app.routes import router
 from app.sockets import websocket_router
 
 
-config = dotenv_values(".env")
-if "URI" not in config:
-    raise Exception(".env is not properly configured")
+load_dotenv()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if sys.prefix != sys.base_prefix:
-        uri = config["URI"]
-        database = config["DB_NAME"]
-        print("Inside a virtual environment")
-    else:
-        os.environ["URI"]
-        os.environ["DB_NAME"]
-        print("Not in a virtual environment")
+    uri = os.environ.get("DB_URI", None)
+    database = os.environ.get("DB_NAME", None)
+    if uri is None or database is None:
+        raise Exception(".env is not properly configured")
     app.mongodb_client = MongoClient(uri)
     app.database = app.mongodb_client[database]
     print("Connected to the MongoDB database!")
@@ -39,8 +32,9 @@ app.include_router(router)
 app.include_router(websocket_router)
 
 origins = [
-    "http://localhost",
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://spyfall.playdat.es",
 ]
 
 app.add_middleware(

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Button, Modal, Stack, TextField, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import spyfallLogo from '../assets/react.svg';
+import spyfallLogo from '../assets/logo.svg';
 import {
   LOBBY_CODE_LENGTH,
   PLAYER_NAME_LENGTH,
