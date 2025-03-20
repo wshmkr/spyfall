@@ -1,10 +1,13 @@
 import os
 
+import motor.motor_asyncio
+from beanie import init_beanie
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo import MongoClient
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+
+from app.models import Lobby
 from app.routes import router
 from app.sockets import websocket_router
 
@@ -18,8 +21,12 @@ async def lifespan(app: FastAPI):
     database = os.environ.get("DB_NAME", None)
     if uri is None or database is None:
         raise Exception(".env is not properly configured")
-    app.mongodb_client = MongoClient(uri)
-    app.database = app.mongodb_client[database]
+    app.mongodb_client = motor.motor_asyncio.AsyncIOMotorClient(uri)
+    database = app.mongodb_client.get_database(database)
+    await init_beanie(
+        database=database,
+        document_models=[Lobby],
+    )
     print("Connected to the MongoDB database!")
     yield
     print("Database shutdown")

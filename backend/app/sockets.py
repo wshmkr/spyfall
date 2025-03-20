@@ -5,7 +5,7 @@ import time
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
-from app.models import Player, sanitize_name
+from app.models import Player, Lobby, sanitize_name
 
 
 class PlayerMetadata:
@@ -36,9 +36,7 @@ class ConnectionManager:
     async def handle_player_join(
         self, connection: WebSocket, lobby_id: str, player_id: str, player_name: str
     ):
-        database = connection.app.database["Lobby"]
-
-        if (lobby := database.find_one({"_id": lobby_id})) is None:
+        if (lobby := await Lobby.get(lobby_id)) is None:
             await self.send_event(connection, "GO_HOME", {})
             return
 
@@ -49,18 +47,12 @@ class ConnectionManager:
 
         # reconnect if player already in lobby
         player_by_id = next(
-            (player for player in lobby["players"] if player["id"] == player_id), None
+            (player for player in lobby.players if player.id == player_id), None
         )
         if player_by_id is not None:
-            database.update_one(
-                {"_id": lobby_id, "players.id": player_id},
-                {
-                    "$set": {
-                        "players.$.name": player_name,
-                        "players.$.disconnected": False,
-                    }
-                },
-            )
+            player_by_id.name = player_name
+            player_by_id.disconnected = False
+            await lobby.save()
             await self.broadcast_event(
                 lobby_id,
                 "PLAYER_RECONNECT",
@@ -81,14 +73,13 @@ class ConnectionManager:
         else:
             # handle player name collision
             dedupe_num = 0
-            for player in lobby["players"]:
-                if player["name"] == player_name:
-                    dedupe_num = max(player["dedupe"] + 1, dedupe_num)
+            for player in lobby.players:
+                if player.name == player_name:
+                    dedupe_num = max(player.dedupe + 1, dedupe_num)
 
-            player = Player(
-                id=player_id, name=player_name, dedupe=dedupe_num
-            ).model_dump(by_alias=True)
-            database.update_one({"_id": lobby_id}, {"$push": {"players": player}})
+            player = Player(id=player_id, name=player_name, dedupe=dedupe_num)
+            lobby.players.append(player)
+            await lobby.save()
 
             await self.broadcast_event(
                 lobby_id,
@@ -100,11 +91,10 @@ class ConnectionManager:
                 },
             )
 
-        lobby = database.find_one({"_id": lobby_id})
         await self.send_event(
             connection,
             "LOBBY_STATE",
-            {"lobby": lobby},
+            {"lobby": lobby.model_dump()},
         )
 
     async def handle_player_leave(self, connection: WebSocket):
@@ -114,32 +104,28 @@ class ConnectionManager:
         player_id = metadata.player_id
         lobby_id = metadata.lobby_id
         self.lobby_to_connections[lobby_id].remove(connection)
-        database = connection.app.database["Lobby"]
-        lobby = database.find_one({"_id": lobby_id})
+
+        lobby = await Lobby.get(lobby_id)
 
         # pass lobby leader if they leave
-        if lobby["creator"] == player_id:
+        if lobby.creator == player_id:
             new_creator = next(
-                player for player in lobby["players"] if player["id"] != player_id
+                (player for player in lobby.players if player.id != player_id), None
             )
             if new_creator is not None:
-                database.update_one(
-                    {"_id": lobby_id},
-                    {"$set": {"creator": new_creator["id"]}},
-                )
+                lobby.creator = new_creator.id
+                await lobby.save()
                 await self.broadcast_event(
                     lobby_id,
                     "CREATOR_CHANGE",
-                    {"playerId": new_creator["id"]},
+                    {"playerId": new_creator.id},
                 )
 
+        player = next((player for player in lobby.players if player.id == player_id))
         # game not started
-        if lobby["start_time"] is None:
-            database.update_one(
-                {"_id": lobby_id},
-                {"$pull": {"players": {"id": player_id}}},
-            )
-
+        if lobby.start_time is None:
+            lobby.players.remove(player)
+            await lobby.save()
             await self.broadcast_event(
                 lobby_id,
                 "PLAYER_LEAVE",
@@ -147,15 +133,8 @@ class ConnectionManager:
             )
         # game in progress
         else:
-            database.update_one(
-                {"_id": lobby_id, "players.id": player_id},
-                {
-                    "$set": {
-                        "players.$.disconnected": True,
-                    }
-                },
-            )
-
+            player.disconnected = True
+            await lobby.save()
             await self.broadcast_event(
                 lobby_id,
                 "PLAYER_DISCONNECT",
@@ -167,32 +146,25 @@ class ConnectionManager:
         if player_name == "":
             return
 
-        database = connection.app.database["Lobby"]
         metadata = self.connection_to_metadata.get(connection)
         player_id = metadata.player_id
         lobby_id = metadata.lobby_id
 
-        lobby = database.find_one({"_id": lobby_id})
+        lobby = await Lobby.get(lobby_id)
 
         player_by_id = next(
-            (player for player in lobby["players"] if player["id"] == player_id), None
+            (player for player in lobby.players if player.id == player_id), None
         )
 
-        if player_by_id["name"] != player_name:
+        if player_by_id.name != player_name:
             dedupe_num = 0
-            for player in lobby["players"]:
-                if player["name"] == player_name:
-                    dedupe_num = max(player["dedupe"] + 1, dedupe_num)
+            for player in lobby.players:
+                if player.name == player_name:
+                    dedupe_num = max(player.dedupe + 1, dedupe_num)
 
-            database.update_one(
-                {"_id": lobby_id, "players.id": player_id},
-                {
-                    "$set": {
-                        "players.$.name": player_name,
-                        "players.$.dedupe": dedupe_num,
-                    }
-                },
-            )
+            player_by_id.name = player_name
+            player_by_id.dedupe = dedupe_num
+            await lobby.save()
 
             await self.broadcast_event(
                 lobby_id,
@@ -207,11 +179,9 @@ class ConnectionManager:
     async def handle_player_kick(self, connection: WebSocket, player_id: str):
         metadata = self.connection_to_metadata.get(connection)
         lobby_id = metadata.lobby_id
-        database = connection.app.database["Lobby"]
 
-        lobby = database.find_one({"_id": lobby_id})
-        creator = lobby["creator"]
-        if creator != metadata.player_id:
+        lobby = await Lobby.get(lobby_id)
+        if lobby.creator != metadata.player_id:
             return
 
         for connect in self.lobby_to_connections[lobby_id]:
@@ -219,32 +189,26 @@ class ConnectionManager:
             if metadata.player_id == player_id:
                 await self.send_event(connect, "GO_HOME", {})
 
-        database.update_one(
-            {"_id": lobby_id},
-            {"$pull": {"players": {"id": player_id}}},
-        )
-
     async def handle_start_game(self, connection: WebSocket):
-        database = connection.app.database["Lobby"]
         metadata = self.connection_to_metadata.get(connection)
         lobby_id = metadata.lobby_id
 
-        lobby = database.find_one({"_id": lobby_id})
-        if len(lobby["players"]) < 3:
+        lobby = await Lobby.get(lobby_id)
+        if len(lobby.players) < 3:
             return
 
         with open("location-packs/location-pack-1.json") as json_file:
             location_pack = json.load(json_file)
             location = random.choice(location_pack["locations"])
 
-            spy = random.choice(lobby["players"])
-            spy["role"] = "Spy"
+            spy = random.choice(lobby.players)
+            spy.role = "Spy"
 
-            for player in lobby["players"]:
-                if player["role"] != "Spy":
+            for player in lobby.players:
+                if player.role != "Spy":
                     role = random.choice(location["roles"])
                     location["roles"].remove(role)
-                    player["role"] = role["name"]
+                    player.role = role["name"]
 
             await self.broadcast_event(
                 lobby_id,
@@ -256,49 +220,32 @@ class ConnectionManager:
                 },
             )
 
-        database.update_one(
-            {"_id": lobby_id},
-            {
-                "$set": {
-                    "start_time": time.time(),
-                    "location": location["name"],
-                    "players": lobby["players"],
-                }
-            },
-        )
+        lobby.start_time = int(time.time())
+        lobby.location = location["name"]
+        await lobby.save()
 
-        lobby = database.find_one({"_id": lobby_id})
         await self.broadcast_event(
             lobby_id,
             "LOBBY_STATE",
-            {"lobby": lobby},
+            {"lobby": lobby.model_dump()},
         )
 
     async def handle_reset_game(self, connection: WebSocket):
-        database = connection.app.database["Lobby"]
         metadata = self.connection_to_metadata.get(connection)
         lobby_id = metadata.lobby_id
 
-        database.update_one(
-            {"_id": lobby_id},
-            {
-                "$set": {
-                    "start_time": None,
-                    "location": None,
-                    "players.$[].role": None,
-                }
-            },
-        )
-        database.update_one(
-            {"_id": lobby_id},
-            {"$pull": {"players": {"disconnected": True}}},
-        )
+        lobby = await Lobby.get(lobby_id)
+        lobby.start_time = None
+        lobby.location = None
+        for player in lobby.players:
+            player.role = None
+        lobby.players = [player for player in lobby.players if not player.disconnected]
+        await lobby.save()
 
-        lobby = database.find_one({"_id": lobby_id})
         await self.broadcast_event(
             lobby_id,
             "LOBBY_STATE",
-            {"lobby": lobby},
+            {"lobby": lobby.model_dump()},
         )
 
 

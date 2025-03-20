@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 from app.models import (
     CheckLobbyResponse,
     CreateLobbyResponse,
@@ -27,10 +27,10 @@ def default():
     status_code=status.HTTP_201_CREATED,
     response_model=CreateLobbyResponse,
 )
-def create_lobby(request: Request, body: CreateLobbyRequest):
+async def create_lobby(body: CreateLobbyRequest):
     lobby = Lobby(creator=body.playerId)
     # todo: handle id collision
-    request.app.database["Lobby"].insert_one(lobby.model_dump(by_alias=True))
+    await lobby.insert()
     print(f"Created a lobby with code {lobby.id}")
 
     return CreateLobbyResponse(
@@ -45,9 +45,8 @@ def create_lobby(request: Request, body: CreateLobbyRequest):
     status_code=status.HTTP_200_OK,
     response_model=CheckLobbyResponse,
 )
-def check_lobby(lobby_id: str, request: Request, body: CheckLobbyRequest):
-    database = request.app.database["Lobby"]
-    if (database.find_one({"_id": lobby_id})) is None:
+async def check_lobby(lobby_id: str, body: CheckLobbyRequest):
+    if (await Lobby.get(lobby_id)) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Lobby with code {lobby_id} not found",
