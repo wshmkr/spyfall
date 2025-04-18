@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, CircularProgress } from '@mui/material';
 import { Timer } from '@mui/icons-material';
 
@@ -9,45 +9,35 @@ interface GameTimerProps {
 }
 
 function GameTimer({ startTime, duration, setGameOver }: GameTimerProps) {
-  const intervalRef = useRef(0);
-  const [timer, setTimer] = useState('');
-
-  const getTimeRemaining = (currTime: Date) => {
-    const total = Date.parse(currTime.toString()) - Date.parse(new Date().toString());
-    const seconds = Math.floor((total / 1000) % 60);
-    const minutes = Math.floor((total / 1000 / 60) % 60);
-    return { total, seconds, minutes };
-  };
-
-  const updateTimer = (currTime: Date) => {
-    const { total, minutes, seconds } = getTimeRemaining(currTime);
-    if (total >= 0) {
-      setTimer(
-        (minutes > 9 ? minutes : '0' + minutes) + ':' + (seconds > 9 ? seconds : '0' + seconds),
-      );
-    } else {
-      setGameOver(true);
-      clearInterval(intervalRef.current);
-    }
-  };
-
-  const startTimer = () => {
-    const currTime = new Date(startTime * 1000);
-    currTime.setSeconds(currTime.getSeconds() + duration);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      updateTimer(currTime);
-    }, 1000);
-  };
+  const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
-    startTimer();
-  }, []);
+    const updateTimer = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = startTime + duration - now;
+
+      if (diff <= 0) {
+        setGameOver(true);
+        return;
+      }
+
+      const minutes = Math.floor(diff / 60)
+        .toString()
+        .padStart(2, '0');
+      const seconds = (diff % 60).toString().padStart(2, '0');
+      setTimeLeft(`${minutes}:${seconds}`);
+    };
+
+    updateTimer();
+    const intervalId = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [startTime, duration, setGameOver]);
 
   return (
     <Button variant="contained" disabled sx={{ height: '47px' }}>
       <Timer />
-      {timer ? timer : <CircularProgress size={24} color="inherit" />}
+      {timeLeft ? timeLeft : <CircularProgress size={24} color="inherit" />}
     </Button>
   );
 }
