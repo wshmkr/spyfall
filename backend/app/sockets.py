@@ -4,8 +4,11 @@ import time
 
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
+from uvicorn.logging import logging
 
-from app.models import Player, Lobby, sanitize_name, sanitize_lobby_id
+from app.models import Lobby, Player, sanitize_lobby_id, sanitize_name
+
+logger = logging.getLogger("uvicorn")
 
 
 class PlayerMetadata:
@@ -285,7 +288,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 case "RESET_GAME":
                     await manager.handle_reset_game(websocket)
                 case _:
-                    print(f"Received event with unhandled type: {event}")
+                    logger.warning("Received event with unhandled type: %s.", event)
 
     except WebSocketDisconnect:
         await manager.handle_player_leave(websocket)

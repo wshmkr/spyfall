@@ -1,13 +1,16 @@
 from fastapi import APIRouter, HTTPException, Response, status
+from uvicorn.logging import logging
+
 from app.models import (
-    CreateLobbyRequest,
-    CreateLobbyResponse,
     CheckLobbyRequest,
     CheckLobbyResponse,
+    CreateLobbyRequest,
+    CreateLobbyResponse,
     Lobby,
     sanitize_lobby_id,
 )
 
+logger = logging.getLogger("uvicorn")
 
 router = APIRouter()
 
@@ -34,7 +37,7 @@ async def create_lobby(body: CreateLobbyRequest):
         lobby = Lobby(creator=body.playerId)
         if await Lobby.get(lobby.id) is None:
             await lobby.insert()
-            print(f"Created a lobby with code {lobby.id}")
+            logger.info("Created a lobby with code %s.", lobby.id)
             return CreateLobbyResponse(
                 lobbyId=lobby.id, playerId=body.playerId, playerName=body.playerName
             )
