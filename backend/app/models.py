@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Annotated, List, Optional
 
 from beanie import Document
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, Field
 from pymongo import IndexModel
 
 
@@ -38,8 +38,6 @@ class Lobby(Document):
         letters = string.ascii_letters.replace("I", "")
         numbers = string.digits.replace("0", "")
         return "".join(random.choice(letters + numbers) for _ in range(4)).upper()
-
-    model_config = ConfigDict(json_encoders={datetime: lambda dt: dt.isoformat()})
 
     id: str = Field(default_factory=generate_id)
     creator: str = Field(default_factory=lambda: uuid.uuid4().hex)

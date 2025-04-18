@@ -100,7 +100,7 @@ class ConnectionManager:
         await self.send_event(
             connection,
             "LOBBY_STATE",
-            {"lobby": lobby.model_dump()},
+            {"lobby": lobby.model_dump(mode="json")},
         )
 
     async def handle_player_leave(self, connection: WebSocket):
@@ -233,7 +233,7 @@ class ConnectionManager:
         await self.broadcast_event(
             lobby_id,
             "LOBBY_STATE",
-            {"lobby": lobby.model_dump()},
+            {"lobby": lobby.model_dump(mode="json")},
         )
 
     async def handle_reset_game(self, connection: WebSocket):
@@ -251,7 +251,7 @@ class ConnectionManager:
         await self.broadcast_event(
             lobby_id,
             "LOBBY_STATE",
-            {"lobby": lobby.model_dump()},
+            {"lobby": lobby.model_dump(mode="json")},
         )
 
 
