@@ -1,6 +1,6 @@
 import { AppBar, Box, Grid2, Stack, Tab, Tabs } from '@mui/material';
 import { SyntheticEvent, useState } from 'react';
-import { AssignmentInd, Place } from '@mui/icons-material';
+import { AssignmentInd, Place, PowerOff } from '@mui/icons-material';
 import { Player } from '../utils/models.ts';
 import StrikeableButton from '../atoms/StrikeableButton.tsx';
 
@@ -39,8 +39,8 @@ function PlayersTab({ players, selected }: PlayersTabProps) {
       <Grid2 container>
         {players.map((player) => {
           return (
-            <Grid2 size={{ xs: 12, sm: 6 }} key={player.name}>
-              <StrikeableButton text={player.name} />
+            <Grid2 size={{ xs: 12, sm: 6 }} sx={{ my: 1 }} key={player.name}>
+              <StrikeableButton text={player.name} icon={player.disconnected && <PowerOff />} />
             </Grid2>
           );
         })}

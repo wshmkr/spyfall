@@ -35,7 +35,7 @@ function HomePage() {
   return (
     <Stack height="100%" p="2rem" justifyContent="center" alignItems="center">
       <img style={{ width: '100%', maxWidth: '400px' }} src={logo} alt="logo" />
-      <Typography variant="h4" sx={{ mb: 5 }} fontFamily="Playpen Sans">
+      <Typography variant="h3" sx={{ mb: 5 }} fontFamily="Playpen Sans">
         Spyfall
       </Typography>
       <Stack width="100%" maxWidth="400px">

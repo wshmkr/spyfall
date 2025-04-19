@@ -25,7 +25,17 @@ export const useGameStateManager = (navigate: NavigateFunction) => {
     sendJsonMessage,
     lastJsonMessage,
     readyState: socketState,
-  } = useWebSocket(import.meta.env.VITE_WEBSOCKET_URL);
+  } = useWebSocket(import.meta.env.VITE_WEBSOCKET_URL, {
+    shouldReconnect: () => true,
+    reconnectInterval: 3000,
+    heartbeat: {
+      message: 'PING',
+      returnMessage: 'PONG',
+      interval: 10000,
+      timeout: 20000,
+    },
+  });
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [creator, setCreator] = useState<string>('');
   const [location, setLocation] = useState<string>();
@@ -40,7 +50,7 @@ export const useGameStateManager = (navigate: NavigateFunction) => {
     setStartTime(lobby.start_time);
     setDuration(lobby.duration);
 
-    if (localStorage.getItem('playerName') === undefined) {
+    if (localStorage.getItem('playerName') === null) {
       const thisPlayer = lobby.players.find(
         (player) => player.id === localStorage.getItem('playerId'),
       );

@@ -3,9 +3,10 @@ import { useState } from 'react';
 
 interface StrikeableButtonProps {
   text: string;
+  icon?: React.ReactNode;
 }
 
-function StrikeableButton({ text }: StrikeableButtonProps) {
+function StrikeableButton({ text, icon }: StrikeableButtonProps) {
   const [strikethrough, setStrikethrough] = useState<boolean>(false);
   const toggleStrikethrough = () => {
     setStrikethrough((prev) => !prev);
@@ -19,6 +20,7 @@ function StrikeableButton({ text }: StrikeableButtonProps) {
       >
         {text}
       </Typography>
+      {icon}
     </Button>
   );
 }
