@@ -25,7 +25,7 @@ function PlayerRenameDialog({
   const [newName, setNewName] = useState(currentName);
 
   const onRename = () => {
-    playerRenameEvent(newName);
+    playerRenameEvent(newName.trim());
     onClose();
   };
 
@@ -34,10 +34,9 @@ function PlayerRenameDialog({
       <DialogTitle>Edit Name</DialogTitle>
       <DialogContent>
         <TextField
-          defaultValue={currentName}
+          value={newName}
           slotProps={{ htmlInput: { maxLength: PLAYER_NAME_LENGTH } }}
-          autoComplete="off"
-          onChange={(text) => setNewName(text.target.value.trim())}
+          onChange={(event) => setNewName(event.target.value)}
         />
       </DialogContent>
       <DialogActions>

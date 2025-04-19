@@ -27,9 +27,9 @@ function LobbyCodeDialog({ open, onClose, playerName }: LobbyCodeDialogProps) {
     )
       .then((response) => response.json())
       .then((json) => {
-        if (json['lobbyId']) {
-          localStorage.setItem('playerId', json['playerId']);
-          localStorage.setItem('playerName', json['playerName']);
+        if (json.lobbyId) {
+          localStorage.setItem('playerId', json.playerId);
+          localStorage.setItem('playerName', json.playerName);
           navigate(`/${code}`);
         } else {
           console.error(json);
@@ -46,13 +46,12 @@ function LobbyCodeDialog({ open, onClose, playerName }: LobbyCodeDialogProps) {
       <DialogContent>
         <TextField
           placeholder="Lobby Code"
-          autoComplete="off"
           fullWidth
           slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
           helperText={codeHelperText}
           error={codeHelperText !== ''}
           disabled={disableCodeField}
-          onChange={(text) => handleCodeChange(text.target.value)}
+          onChange={(event) => handleCodeChange(event.target.value)}
         />
       </DialogContent>
     </Dialog>
