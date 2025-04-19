@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException, Response, status
 from app.models import (
-    CheckLobbyResponse,
-    CreateLobbyResponse,
-    Lobby,
     CreateLobbyRequest,
+    CreateLobbyResponse,
     CheckLobbyRequest,
+    CheckLobbyResponse,
+    Lobby,
+    sanitize_lobby_id,
 )
 
 
@@ -23,29 +24,35 @@ def default():
 @router.post(
     "/lobby",
     tags=["lobby"],
-    description="Create a new lobby",
+    description="Create a new lobby and verify player info",
     status_code=status.HTTP_201_CREATED,
     response_model=CreateLobbyResponse,
 )
 async def create_lobby(body: CreateLobbyRequest):
-    lobby = Lobby(creator=body.playerId)
-    # todo: handle id collision
-    await lobby.insert()
-    print(f"Created a lobby with code {lobby.id}")
-
-    return CreateLobbyResponse(
-        lobbyId=lobby.id, playerId=body.playerId, playerName=body.playerName
+    max_attempts = 10
+    for _ in range(max_attempts):
+        lobby = Lobby(creator=body.playerId)
+        if await Lobby.get(lobby.id) is None:
+            await lobby.insert()
+            print(f"Created a lobby with code {lobby.id}")
+            return CreateLobbyResponse(
+                lobbyId=lobby.id, playerId=body.playerId, playerName=body.playerName
+            )
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Failed to generate a unique lobby ID after {max_attempts} attempts",
     )
 
 
 @router.post(
     "/lobby/{lobby_id}",
     tags=["lobby"],
-    description="Check if lobby exists",
+    description="Check if lobby exists and verify player info",
     status_code=status.HTTP_200_OK,
     response_model=CheckLobbyResponse,
 )
 async def check_lobby(lobby_id: str, body: CheckLobbyRequest):
+    lobby_id = sanitize_lobby_id(lobby_id)
     if (await Lobby.get(lobby_id)) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

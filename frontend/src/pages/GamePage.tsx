@@ -17,6 +17,17 @@ function GamePage() {
   const navigate = useNavigate();
   const { lobbyId } = useParams();
 
+  useEffect(() => {
+    if (!lobbyId || lobbyId.length !== 4) {
+      navigate('/');
+      return;
+    }
+    const sanitizedLobbyId = lobbyId.replace('I', '1').replace('0', 'O').toUpperCase();
+    if (sanitizedLobbyId !== lobbyId) {
+      navigate(`/${sanitizedLobbyId}`);
+    }
+  }, [lobbyId, navigate]);
+
   const { gameState, sendEvent, socketState } = useGameStateManager(navigate);
   const status = gameState.startTime ? LobbyStatus.IN_PROGRESS : LobbyStatus.NOT_STARTED;
 

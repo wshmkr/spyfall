@@ -62,6 +62,12 @@ export const theme = createTheme({
         },
       },
     },
+    MuiTextField: {
+      defaultProps: {
+        spellCheck: false,
+        autoComplete: 'off',
+      },
+    },
   },
 });
 

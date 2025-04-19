@@ -8,8 +8,11 @@ from typing import Optional, List, Annotated
 
 
 def sanitize_name(name):
-    name = name.strip()
-    return name[:24] if len(name) > 24 else name
+    return name.strip()[:24]
+
+
+def sanitize_lobby_id(lobby_id):
+    return lobby_id.replace("I", "1").replace("0", "O").upper()[:4]
 
 
 def valid_uuid(value):
@@ -30,8 +33,9 @@ class Player(BaseModel):
 class Lobby(Document):
     @staticmethod
     def generate_id() -> str:
-        characters = string.ascii_letters + string.digits
-        return "".join(random.choice(characters) for _ in range(4)).upper()
+        letters = string.ascii_letters.replace("I", "")
+        numbers = string.digits.replace("0", "")
+        return "".join(random.choice(letters + numbers) for _ in range(4)).upper()
 
     id: str = Field(default_factory=generate_id)
     creator: str = Field(default_factory=lambda: uuid.uuid4().hex)

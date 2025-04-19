@@ -5,7 +5,7 @@ import time
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
-from app.models import Player, Lobby, sanitize_name
+from app.models import Player, Lobby, sanitize_name, sanitize_lobby_id
 
 
 class PlayerMetadata:
@@ -36,7 +36,10 @@ class ConnectionManager:
     async def handle_player_join(
         self, connection: WebSocket, lobby_id: str, player_id: str, player_name: str
     ):
-        if (lobby := await Lobby.get(lobby_id)) is None:
+        lobby_id = sanitize_lobby_id(lobby_id)
+        player_name = sanitize_name(player_name)
+
+        if (lobby := await Lobby.get(lobby_id)) is None or player_name == "":
             await self.send_event(connection, "GO_HOME", {})
             return
 
