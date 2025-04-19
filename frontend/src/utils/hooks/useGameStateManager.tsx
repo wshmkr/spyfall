@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import useWebSocket from 'react-use-websocket';
-import { Lobby, Player } from '../models.ts';
+import { Lobby, Player, WebSocketMessage, WebSocketMessageType } from '../models.ts';
 import { uuid } from '../utils.ts';
 import { NavigateFunction } from 'react-router-dom';
 
@@ -14,18 +14,13 @@ export interface GameStateType {
   possibleLocations: string[];
 }
 
-interface JsonMessage {
-  type: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: { [key: string]: any };
-}
-
 export const useGameStateManager = (navigate: NavigateFunction) => {
   const {
     sendJsonMessage,
     lastJsonMessage,
     readyState: socketState,
   } = useWebSocket(import.meta.env.VITE_WEBSOCKET_URL);
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [creator, setCreator] = useState<string>('');
   const [location, setLocation] = useState<string>();
@@ -40,54 +35,42 @@ export const useGameStateManager = (navigate: NavigateFunction) => {
     setStartTime(lobby.start_time);
     setDuration(lobby.duration);
 
-    if (localStorage.getItem('playerName') === undefined) {
-      const thisPlayer = lobby.players.find(
-        (player) => player.id === localStorage.getItem('playerId'),
-      );
-      localStorage.setItem('playerName', thisPlayer!.name);
+    const playerId = localStorage.getItem('playerId');
+    const currentPlayer = lobby.players.find((player) => player.id === playerId);
+    if (currentPlayer) {
+      localStorage.setItem('playerName', currentPlayer.name);
     }
   };
 
   const handlePlayerJoin = (id: string, name: string, dedupe: number) => {
-    const newPlayer: Player = {
-      id: id,
-      name: name,
-      dedupe: dedupe,
-      disconnected: false,
-    };
     if (players.some((player) => player.id === id)) return;
-    setPlayers((prev) => [...prev, newPlayer]);
+    setPlayers((prev) => [...prev, { id, name, dedupe, disconnected: false }]);
   };
 
   const handlePlayerLeave = (id: string) => {
-    setPlayers(players.filter((player) => player.id !== id));
+    setPlayers((prev) => prev.filter((player) => player.id !== id));
   };
 
   const handlePlayerDisconnect = (id: string) => {
-    const disconnectedPlayer = { ...players.find((player) => player.id === id)! };
-    disconnectedPlayer.disconnected = true;
-
-    setPlayers(players.map((player) => (player.id !== id ? player : disconnectedPlayer)));
+    setPlayers((prev) =>
+      prev.map((player) => (player.id === id ? { ...player, disconnected: true } : player)),
+    );
   };
 
   const handlePlayerReconnect = (id: string, name: string) => {
-    if (id === localStorage.getItem('playerId')) {
-      return;
-    }
+    if (id === localStorage.getItem('playerId')) return;
 
-    const reconnectedPlayer = { ...players.find((player) => player.id === id)! };
-    reconnectedPlayer.disconnected = false;
-    reconnectedPlayer.name = name;
-
-    setPlayers(players.map((player) => (player.id !== id ? player : reconnectedPlayer)));
+    setPlayers((prev) =>
+      prev.map((player) => (player.id === id ? { ...player, disconnected: false, name } : player)),
+    );
   };
 
   const handlePlayerRename = (playerId: string, newName: string, dedupe: number) => {
-    const renamedPlayer = { ...players.find((player) => player.id === playerId)! };
-    renamedPlayer.name = newName;
-    renamedPlayer.dedupe = dedupe;
-
-    setPlayers(players.map((player) => (player.id !== playerId ? player : renamedPlayer)));
+    setPlayers((prev) =>
+      prev.map((player) =>
+        player.id === playerId ? { ...player, name: newName, dedupe } : player,
+      ),
+    );
 
     if (playerId === localStorage.getItem('playerId')) {
       localStorage.setItem('playerName', newName);
@@ -107,52 +90,40 @@ export const useGameStateManager = (navigate: NavigateFunction) => {
   };
 
   useEffect(() => {
-    const message = lastJsonMessage as JsonMessage;
-    if (!message) {
-      return;
-    }
+    const message = lastJsonMessage as WebSocketMessage;
+    if (!message) return;
 
-    const data = message.data;
-    switch (message.type) {
-      case 'LOBBY_STATE': {
-        handleLobbyState(data['lobby']);
+    const { type, data } = message;
+    switch (type as WebSocketMessageType) {
+      case 'LOBBY_STATE':
+        handleLobbyState(data.lobby);
         break;
-      }
-      case 'PLAYER_JOIN': {
-        handlePlayerJoin(data['playerId'], data['playerName'], data['dedupe']);
+      case 'PLAYER_JOIN':
+        handlePlayerJoin(data.playerId, data.playerName, data.dedupe);
         break;
-      }
-      case 'PLAYER_LEAVE': {
-        handlePlayerLeave(data['playerId']);
+      case 'PLAYER_LEAVE':
+        handlePlayerLeave(data.playerId);
         break;
-      }
-      case 'PLAYER_RENAME': {
-        handlePlayerRename(data['playerId'], data['playerName'], data['dedupe']);
+      case 'PLAYER_RENAME':
+        handlePlayerRename(data.playerId, data.playerName, data.dedupe);
         break;
-      }
-      case 'PLAYER_DISCONNECT': {
-        handlePlayerDisconnect(data['playerId']);
+      case 'PLAYER_DISCONNECT':
+        handlePlayerDisconnect(data.playerId);
         break;
-      }
-      case 'PLAYER_RECONNECT': {
-        handlePlayerReconnect(data['playerId'], data['playerName']);
+      case 'PLAYER_RECONNECT':
+        handlePlayerReconnect(data.playerId, data.playerName);
         break;
-      }
-      case 'CREATOR_CHANGE': {
-        handleCreatorChange(data['playerId']);
+      case 'CREATOR_CHANGE':
+        handleCreatorChange(data.playerId);
         break;
-      }
-      case 'POSSIBLE_LOCATIONS': {
-        handlePossibleLocations(data['locations']);
+      case 'POSSIBLE_LOCATIONS':
+        handlePossibleLocations(data.locations);
         break;
-      }
-      case 'GO_HOME': {
+      case 'GO_HOME':
         handleGoHome();
         break;
-      }
-      default: {
-        console.error(`Received event with unhandled type: ${message.type}`);
-      }
+      default:
+        console.error(`Received event with unhandled type: ${type}`);
     }
   }, [lastJsonMessage]);
 
@@ -210,26 +181,22 @@ export const useGameStateManager = (navigate: NavigateFunction) => {
     });
   };
 
-  const sendEvent = {
-    playerJoinEvent,
-    playerRenameEvent,
-    kickPlayerEvent,
-    startGameEvent,
-    returnToLobbyEvent,
-  };
-
-  const gameState = {
-    players,
-    creator,
-    location,
-    startTime,
-    duration,
-    possibleLocations,
-  };
-
   return {
-    gameState,
-    sendEvent,
+    gameState: {
+      players,
+      creator,
+      location,
+      startTime,
+      duration,
+      possibleLocations,
+    },
+    sendEvent: {
+      playerJoinEvent,
+      playerRenameEvent,
+      kickPlayerEvent,
+      startGameEvent,
+      returnToLobbyEvent,
+    },
     socketState,
   };
 };

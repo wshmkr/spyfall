@@ -16,6 +16,7 @@ function RoleDisplay({ role }: RoleProps) {
           fontSize: 'min(calc(1rem + 1.5vw), 27px)',
           alignContent: 'center',
           borderRadius: '5px 0 0 5px',
+          lineHeight: 0.9,
         }}
       >
         {role}

@@ -21,15 +21,19 @@ function HomePage() {
     )
       .then((response) => response.json())
       .then((json) => {
-        if (json['lobbyId']) {
-          localStorage.setItem('playerId', json['playerId']);
-          localStorage.setItem('playerName', json['playerName']);
-          navigate(`/${json['lobbyId']}`);
+        if (json.lobbyId) {
+          localStorage.setItem('playerId', json.playerId);
+          localStorage.setItem('playerName', json.playerName);
+          navigate(`/${json.lobbyId}`);
         } else {
           console.error(json);
         }
       })
       .catch((error) => console.error(error));
+  };
+
+  const handleJoinLobby = () => {
+    setShowLobbyCodeModal(true);
   };
 
   return (
@@ -42,18 +46,17 @@ function HomePage() {
         <TextField
           label="Enter your name"
           placeholder="Player Name"
-          defaultValue={localStorage.getItem('playerName')}
+          value={name}
           slotProps={{ htmlInput: { maxLength: PLAYER_NAME_LENGTH } }}
-          autoComplete="off"
           fullWidth
-          onChange={(text) => setName(text.target.value)}
+          onChange={(event) => setName(event.target.value)}
           sx={{ mb: 2 }}
         />
         <Stack spacing={1} mb={4}>
           <Button variant="contained" disabled={!name} onClick={handleCreateLobby}>
             Create Lobby
           </Button>
-          <Button variant="contained" disabled={!name} onClick={() => setShowLobbyCodeModal(true)}>
+          <Button variant="contained" disabled={!name} onClick={handleJoinLobby}>
             Join Lobby
           </Button>
         </Stack>

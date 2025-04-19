@@ -16,6 +16,7 @@ function LocationDisplay({ location }: LocationProps) {
           fontSize: 'min(calc(1rem + 1.5vw), 27px)',
           alignContent: 'center',
           borderRadius: '0 5px 5px 0',
+          lineHeight: 0.9,
         }}
       >
         {location}
