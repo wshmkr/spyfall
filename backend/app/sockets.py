@@ -37,6 +37,12 @@ class ConnectionManager:
         for connection in self.lobby_to_connections[lobby_id]:
             await self.send_event(connection, event_type, data)
 
+    async def get_lobby(self, lobby_id: str):
+        lobby = await Lobby.get(lobby_id)
+        if lobby is None:
+            await self.broadcast_event(lobby_id, "GO_HOME", {})
+        return lobby
+
     async def handle_player_join(
         self, connection: WebSocket, lobby_id: str, player_id: str, player_name: str
     ):
@@ -112,7 +118,7 @@ class ConnectionManager:
         lobby_id = metadata.lobby_id
         self.lobby_to_connections[lobby_id].remove(connection)
 
-        lobby = await Lobby.get(lobby_id)
+        lobby = await self.get_lobby(lobby_id)
 
         # pass lobby leader if they leave
         if lobby.creator == player_id:
@@ -157,7 +163,7 @@ class ConnectionManager:
         player_id = metadata.player_id
         lobby_id = metadata.lobby_id
 
-        lobby = await Lobby.get(lobby_id)
+        lobby = await self.get_lobby(lobby_id)
 
         player_by_id = next(
             (player for player in lobby.players if player.id == player_id), None
@@ -187,7 +193,7 @@ class ConnectionManager:
         metadata = self.connection_to_metadata.get(connection)
         lobby_id = metadata.lobby_id
 
-        lobby = await Lobby.get(lobby_id)
+        lobby = await self.get_lobby(lobby_id)
         if lobby.creator != metadata.player_id:
             return
 
@@ -200,7 +206,7 @@ class ConnectionManager:
         metadata = self.connection_to_metadata.get(connection)
         lobby_id = metadata.lobby_id
 
-        lobby = await Lobby.get(lobby_id)
+        lobby = await self.get_lobby(lobby_id)
         if len(lobby.players) < 3:
             return
 
@@ -241,7 +247,7 @@ class ConnectionManager:
         metadata = self.connection_to_metadata.get(connection)
         lobby_id = metadata.lobby_id
 
-        lobby = await Lobby.get(lobby_id)
+        lobby = await self.get_lobby(lobby_id)
         lobby.start_time = None
         lobby.location = None
         for player in lobby.players:
