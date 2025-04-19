@@ -48,7 +48,7 @@ class Lobby(Document):
     create_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
-        indexes = [IndexModel("create_time", expireAfterSeconds=86400)]  # 1 day
+        indexes = [IndexModel("create_time", expireAfterSeconds=3600)]  # 1 hour
 
 
 class CreateLobbyRequest(BaseModel):

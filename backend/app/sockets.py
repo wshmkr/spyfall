@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import random
 import time
@@ -246,6 +247,7 @@ class ConnectionManager:
         for player in lobby.players:
             player.role = None
         lobby.players = [player for player in lobby.players if not player.disconnected]
+        lobby.create_time = datetime.now(timezone.utc)
         await lobby.save()
 
         await self.broadcast_event(
