@@ -1,10 +1,12 @@
 import random
 import string
 import uuid
+from datetime import datetime, timezone
+from typing import Annotated, List, Optional
 
 from beanie import Document
-from pydantic import BaseModel, Field, BeforeValidator
-from typing import Optional, List, Annotated
+from pydantic import BaseModel, BeforeValidator, Field
+from pymongo import IndexModel
 
 
 def sanitize_name(name):
@@ -43,6 +45,10 @@ class Lobby(Document):
     location: Optional[str] = None
     start_time: Optional[int] = None
     duration: int = Field(default=480)  # seconds
+    create_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Settings:
+        indexes = [IndexModel("create_time", expireAfterSeconds=3600)]  # 1 hour
 
 
 class CreateLobbyRequest(BaseModel):

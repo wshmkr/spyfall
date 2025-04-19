@@ -1,16 +1,18 @@
 import os
+from contextlib import asynccontextmanager
 
 import motor.motor_asyncio
 from beanie import init_beanie
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-from contextlib import asynccontextmanager
+from uvicorn.logging import logging
 
 from app.models import Lobby
 from app.routes import router
 from app.sockets import websocket_router
 
+logger = logging.getLogger("uvicorn")
 
 load_dotenv()
 
@@ -27,9 +29,9 @@ async def lifespan(app: FastAPI):
         database=database,
         document_models=[Lobby],
     )
-    print("Connected to the MongoDB database!")
+    logger.info("Connected to the MongoDB database.")
     yield
-    print("Database shutdown")
+    logger.info("Database shutdown.")
     app.mongodb_client.close()
 
 
